@@ -55,6 +55,7 @@
       display: block;
       max-width: 0;
       overflow: hidden;
+      pointer-events: none;
       color: #3d3d3d;
       font: inherit;
       white-space: nowrap;
