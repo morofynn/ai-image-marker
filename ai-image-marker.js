@@ -6,9 +6,11 @@
   const SELECTOR = 'img[data-ai], img[marker="ai"]';
   const DEFAULT_LABEL = 'KI-generiert';
   const markers = new Map();
+  const motionGroups = new Map();
   let scheduled = false;
   let scrolling = false;
   let scrollEndTimer = 0;
+  let motionCheckTimer = 0;
 
   const style = document.createElement('style');
   style.dataset.aiImageMarker = '';
@@ -38,10 +40,10 @@
       white-space: nowrap;
       cursor: pointer;
       pointer-events: auto;
-      opacity: 1;
+      opacity: .8;
       transform: translate(-50%, -50%);
       transform-origin: center;
-      transition: width 180ms ease, padding 180ms ease, opacity 120ms ease;
+      transition: width 180ms ease, padding 180ms ease, opacity 240ms ease;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -77,7 +79,6 @@
     .ai-image-marker[data-moving="true"] {
       opacity: 0;
       pointer-events: none;
-      transition: none;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -93,12 +94,106 @@
     requestAnimationFrame(positionAll);
   }
 
+  function setRecordMoving(record, reason, moving) {
+    if (moving) {
+      if (record.motionReasons.size === 0) close(record);
+      record.motionReasons.add(reason);
+    } else {
+      record.motionReasons.delete(reason);
+    }
+    record.button.dataset.moving = String(record.motionReasons.size > 0);
+  }
+
   function setMarkersMoving(moving) {
     for (const record of markers.values()) {
-      if (moving) close(record);
-      record.button.dataset.moving = String(moving);
+      setRecordMoving(record, 'scroll', moving);
     }
   }
+
+  function scheduleMotionCheck() {
+    if (motionCheckTimer) return;
+    motionCheckTimer = setTimeout(checkMotionGroups, 120);
+  }
+
+  function checkMotionGroups() {
+    motionCheckTimer = 0;
+    const now = Date.now();
+    const stoppedGroups = [];
+    let hasMovingGroups = false;
+
+    for (const group of motionGroups.values()) {
+      if (!group.moving) continue;
+      if (now - group.lastChange < 500) {
+        hasMovingGroups = true;
+        continue;
+      }
+      group.moving = false;
+      stoppedGroups.push(group);
+    }
+
+    if (stoppedGroups.length) {
+      scheduled = false;
+      requestAnimationFrame(() => {
+        positionAll();
+        requestAnimationFrame(() => {
+          for (const group of stoppedGroups) {
+            for (const record of group.records) {
+              setRecordMoving(record, group, false);
+            }
+          }
+        });
+      });
+    }
+
+    if (hasMovingGroups) scheduleMotionCheck();
+  }
+
+  function findMotionRoot(image) {
+    let node = image;
+    while (node && node !== document.documentElement) {
+      const css = getComputedStyle(node);
+      if (css.transform !== 'none' || (css.translate && css.translate !== 'none')) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function attachMotionTracking(image, record) {
+    const root = findMotionRoot(image);
+    if (!root) return;
+
+    let group = motionGroups.get(root);
+    if (!group) {
+      group = {
+        root,
+        records: new Set(),
+        moving: false,
+        lastChange: 0,
+        observer: null
+      };
+      group.observer = new MutationObserver(() => {
+        group.lastChange = Date.now();
+        if (!group.moving) {
+          group.moving = true;
+          for (const item of group.records) setRecordMoving(item, group, true);
+        }
+        scheduleMotionCheck();
+      });
+      group.observer.observe(root, { attributes: true, attributeFilter: ['style'] });
+      motionGroups.set(root, group);
+    }
+
+    group.records.add(record);
+    record.motionGroup = group;
+    if (group.moving) setRecordMoving(record, group, true);
+  }
+
+  function refreshMotionTracking() {
+    for (const [image, record] of markers) {
+      if (!record.motionGroup && image.isConnected) attachMotionTracking(image, record);
+    }
+  }
+
 
   function handleScroll() {
     if (!scrolling) {
@@ -185,7 +280,7 @@
     button.type = 'button';
     button.className = 'ai-image-marker';
     button.dataset.open = 'false';
-    button.dataset.moving = String(scrolling);
+    button.dataset.moving = 'false';
     button.setAttribute('aria-label', label);
     button.setAttribute('aria-expanded', 'false');
     labelNode.className = 'ai-image-marker__label';
@@ -199,6 +294,8 @@
       labelNode,
       timer: 0,
       resizeObserver: null,
+      motionGroup: null,
+      motionReasons: new Set(),
       hovered: false,
       visible: null,
       x: null,
@@ -224,6 +321,8 @@
     }
 
     markers.set(image, record);
+    attachMotionTracking(image, record);
+    if (scrolling) setRecordMoving(record, 'scroll', true);
   }
 
   function removeMarker(image) {
@@ -231,6 +330,14 @@
     if (!record) return;
     clearTimeout(record.timer);
     record.resizeObserver?.disconnect();
+    if (record.motionGroup) {
+      const group = record.motionGroup;
+      group.records.delete(record);
+      if (group.records.size === 0) {
+        group.observer.disconnect();
+        motionGroups.delete(group.root);
+      }
+    }
     record.button.remove();
     markers.delete(image);
   }
@@ -276,7 +383,11 @@
 
     addEventListener('scroll', handleScroll, { passive: true, capture: true });
     addEventListener('resize', schedulePositioning, { passive: true });
-    addEventListener('load', schedulePositioning, { capture: true });
+    addEventListener('load', () => {
+      refreshMotionTracking();
+      schedulePositioning();
+    }, { capture: true, once: true });
+    setTimeout(refreshMotionTracking, 500);
 
     window.AIImageMarker = Object.freeze({ refresh });
   }

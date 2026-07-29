@@ -31,6 +31,8 @@ Aus Kompatibilitätsgründen wird auch `marker="ai"` unterstützt.
 - berücksichtigt Scrollen, verschachtelte Scrollcontainer, Größenänderungen und responsive Layouts
 - beobachtet nur relevante Bildattribute und bleibt dadurch auch auf animationsreichen Seiten performant
 - blendet Marker beim Scrollen vollständig aus und positioniert sie 500 ms nach Scrollende neu
+- erkennt transformierte Slider gruppenweise und blendet deren Marker bis 500 ms nach Bewegungsende aus
+- verwendet im Ruhezustand 80 % Deckkraft und weiche Ein-/Ausblendungen
 - zugänglich per Tastatur und `aria-label`
 - respektiert `prefers-reduced-motion`
 
