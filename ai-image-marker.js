@@ -11,6 +11,10 @@
   let scrolling = false;
   let scrollEndTimer = 0;
   let motionCheckTimer = 0;
+  let pointerFrame = 0;
+  let pointerX = -1;
+  let pointerY = -1;
+  let hoveredRecord = null;
 
   const style = document.createElement('style');
   style.dataset.aiImageMarker = '';
@@ -38,8 +42,7 @@
       color: #3d3d3d;
       font: 600 10px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       white-space: nowrap;
-      cursor: pointer;
-      pointer-events: auto;
+      pointer-events: none;
       opacity: .8;
       transform: translate(-50%, -50%);
       transform-origin: center;
@@ -287,6 +290,58 @@
     if (autoClose) record.timer = setTimeout(() => close(record), 2000);
   }
 
+  function markerAtPoint(x, y) {
+    if (hoveredRecord && hoveredRecord.visible && hoveredRecord.motionReasons.size === 0) {
+      const rect = hoveredRecord.button.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        return hoveredRecord;
+      }
+    }
+
+    for (const record of markers.values()) {
+      if (!record.visible || record.motionReasons.size > 0) continue;
+      if (Math.abs(x - record.x) <= 8 && Math.abs(y - record.y) <= 8) return record;
+    }
+    return null;
+  }
+
+  function updatePointerHover() {
+    pointerFrame = 0;
+    const next = markerAtPoint(pointerX, pointerY);
+    if (next === hoveredRecord) return;
+
+    if (hoveredRecord) {
+      hoveredRecord.hovered = false;
+      close(hoveredRecord);
+    }
+    hoveredRecord = next;
+    if (hoveredRecord) {
+      hoveredRecord.hovered = true;
+      open(hoveredRecord, false);
+    }
+  }
+
+  function handlePointerMove(event) {
+    if (event.pointerType === 'touch') return;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(updatePointerHover);
+  }
+
+  function handlePointerLeave() {
+    pointerX = -1;
+    pointerY = -1;
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(updatePointerHover);
+  }
+
+  function handlePointerClick(event) {
+    const record = markerAtPoint(event.clientX, event.clientY);
+    if (!record) return;
+    event.preventDefault();
+    event.stopPropagation();
+    open(record, !record.hovered);
+  }
+
   function readPercent(image, attribute) {
     const value = Number.parseFloat(image.getAttribute(attribute));
     return Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 50;
@@ -343,17 +398,10 @@
       y: null
     };
     button.addEventListener('click', (event) => {
+      if (event.detail !== 0) return;
       event.preventDefault();
       event.stopPropagation();
-      open(record, !record.hovered);
-    });
-    button.addEventListener('mouseenter', () => {
-      record.hovered = true;
-      open(record, false);
-    });
-    button.addEventListener('mouseleave', () => {
-      record.hovered = false;
-      close(record);
+      open(record, true);
     });
 
     if ('ResizeObserver' in window) {
@@ -417,6 +465,9 @@
 
     addEventListener('scroll', handleScroll, { passive: true, capture: true });
     addEventListener('resize', schedulePositioning, { passive: true });
+    addEventListener('pointermove', handlePointerMove, { passive: true, capture: true });
+    addEventListener('pointerleave', handlePointerLeave, { passive: true });
+    addEventListener('click', handlePointerClick, { capture: true });
     addEventListener('load', () => {
       refreshMotionTracking();
       schedulePositioning();
