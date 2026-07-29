@@ -8,6 +8,8 @@ Ein kleines, frameworkfreies Script zur unaufdringlichen Kennzeichnung KI-generi
 <script src="https://cdn.jsdelivr.net/gh/morofynn/ai-image-marker@main/ai-image-marker.js" defer></script>
 ```
 
+Dieser Link bleibt bei allen Updates gleich. Nach einem Push auf `main` leert eine GitHub Action automatisch den jsDelivr-Cache der Datei.
+
 Anschließend Bilder mit `data-ai` markieren:
 
 ```html
