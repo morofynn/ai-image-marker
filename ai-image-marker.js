@@ -17,7 +17,7 @@
       z-index: 2147483647;
       display: inline-flex;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: center;
       box-sizing: border-box;
       width: 15px;
       height: 15px;
@@ -26,11 +26,13 @@
       overflow: hidden;
       border: 0;
       border-radius: 999px;
-      background: linear-gradient(145deg, #fff 15%, #f1f1f1 100%);
+      background:
+        radial-gradient(circle at 32% 26%, #fff 0 24%, transparent 52%),
+        linear-gradient(145deg, #fff 0%, #f7f7f5 48%, #dededb 100%);
       box-shadow:
-        0 2px 5px rgb(0 0 0 / 24%),
-        inset 0 1px 1px rgb(255 255 255 / 95%),
-        inset 0 -1px 1px rgb(0 0 0 / 10%);
+        0 2px 5px rgb(0 0 0 / 22%),
+        inset 1px 1px 2px rgb(255 255 255 / 100%),
+        inset -1px -2px 2px rgb(0 0 0 / 13%);
       color: #3d3d3d;
       font: 600 11px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       white-space: nowrap;
@@ -41,18 +43,6 @@
       transform-origin: center;
       transition: width 180ms ease, padding 180ms ease, opacity 120ms ease;
       -webkit-font-smoothing: antialiased;
-    }
-
-    .ai-image-marker::before {
-      content: '';
-      flex: 0 0 auto;
-      width: 5px;
-      height: 5px;
-      margin: 5px;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: inset 0 -1px 1px rgb(0 0 0 / 16%);
-      transition: width 140ms ease, margin 140ms ease, opacity 100ms ease;
     }
 
     .ai-image-marker__label {
@@ -72,12 +62,6 @@
       padding: 0 8px;
     }
 
-    .ai-image-marker[data-open="true"]::before {
-      width: 0;
-      margin: 0;
-      opacity: 0;
-    }
-
     .ai-image-marker[data-open="true"] .ai-image-marker__label {
       max-width: 180px;
       opacity: 1;
@@ -92,7 +76,6 @@
 
     @media (prefers-reduced-motion: reduce) {
       .ai-image-marker,
-      .ai-image-marker::before,
       .ai-image-marker__label { transition: none; }
     }
   `;
@@ -119,8 +102,9 @@
       record.button.hidden = !visible;
       if (!visible) continue;
 
-      const x = Math.min(Math.max(rect.right - 10, 8), innerWidth - 8);
-      const y = Math.min(Math.max(rect.top, 8), innerHeight - 8);
+      // From the image centre: 25% of its size to the left and down.
+      const x = Math.min(Math.max(rect.left + rect.width * 0.25, 8), innerWidth - 8);
+      const y = Math.min(Math.max(rect.top + rect.height * 0.75, 8), innerHeight - 8);
       record.button.style.left = `${x}px`;
       record.button.style.top = `${y}px`;
     }

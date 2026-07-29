@@ -24,7 +24,7 @@ Aus Kompatibilitätsgründen wird auch `marker="ai"` unterstützt.
 
 ## Verhalten
 
-- 15 × 15 px großer weißer Marker am oberen rechten Bildrand
+- 15 × 15 px großer weißer Marker bei 25 % Breite und 75 % Höhe des Bildes
 - öffnet sich bei Klick oder Tastaturbedienung für zwei Sekunden
 - verändert keine bestehenden Bild-, Link-, Grid-, Flex- oder Positionierungsregeln
 - funktioniert auch in `overflow: hidden`-Containern und bei dynamisch eingefügten Bildern
