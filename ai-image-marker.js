@@ -150,12 +150,17 @@
 
   function findMotionRoot(image) {
     let node = image;
+    let groupedCandidate = null;
     while (node && node !== document.documentElement) {
+      if (motionGroups.has(node)) return node;
       const css = getComputedStyle(node);
       if (css.transform !== 'none' || (css.translate && css.translate !== 'none')) return node;
+      if (!groupedCandidate && node !== image && node.querySelectorAll(SELECTOR).length > 1) {
+        groupedCandidate = node;
+      }
       node = node.parentElement;
     }
-    return null;
+    return groupedCandidate;
   }
 
   function attachMotionTracking(image, record) {
@@ -234,8 +239,8 @@
       }
       if (!visible) continue;
 
-      const x = Math.round((rect.left + rect.width * 0.5) * 2) / 2;
-      const y = Math.round((rect.top + rect.height * 0.5) * 2) / 2;
+      const x = Math.round((rect.left + rect.width * record.xPercent / 100) * 2) / 2;
+      const y = Math.round((rect.top + rect.height * record.yPercent / 100) * 2) / 2;
       if (record.x !== x) {
         record.x = x;
         record.button.style.left = `${x}px`;
@@ -262,19 +267,33 @@
     if (autoClose) record.timer = setTimeout(() => close(record), 2000);
   }
 
+  function readPercent(image, attribute) {
+    const value = Number.parseFloat(image.getAttribute(attribute));
+    return Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 50;
+  }
+
   function addMarker(image) {
     if (markers.has(image)) {
       const current = markers.get(image);
       const nextLabel = image.dataset.aiLabel || DEFAULT_LABEL;
+      const nextXPercent = readPercent(image, 'data-ai-x');
+      const nextYPercent = readPercent(image, 'data-ai-y');
       if (current.label !== nextLabel) {
         current.label = nextLabel;
         current.button.setAttribute('aria-label', nextLabel);
         current.labelNode.textContent = nextLabel;
       }
+      if (current.xPercent !== nextXPercent || current.yPercent !== nextYPercent) {
+        current.xPercent = nextXPercent;
+        current.yPercent = nextYPercent;
+        schedulePositioning();
+      }
       return;
     }
 
     const label = image.dataset.aiLabel || DEFAULT_LABEL;
+    const xPercent = readPercent(image, 'data-ai-x');
+    const yPercent = readPercent(image, 'data-ai-y');
     const button = document.createElement('button');
     const labelNode = document.createElement('span');
     button.type = 'button';
@@ -297,6 +316,8 @@
       motionGroup: null,
       motionReasons: new Set(),
       hovered: false,
+      xPercent,
+      yPercent,
       visible: null,
       x: null,
       y: null
@@ -378,7 +399,7 @@
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-ai', 'data-ai-label', 'marker']
+      attributeFilter: ['data-ai', 'data-ai-label', 'data-ai-x', 'data-ai-y', 'marker']
     });
 
     addEventListener('scroll', handleScroll, { passive: true, capture: true });

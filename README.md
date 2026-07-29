@@ -20,6 +20,12 @@ Optional kann der Text angepasst werden:
 <img src="bild.jpg" alt="Beschreibung" data-ai data-ai-label="Mit KI erstellt">
 ```
 
+Die Position lässt sich pro Bild in Prozent angeben. X läuft von links nach rechts, Y von oben nach unten; Standard ist jeweils `50`:
+
+```html
+<img src="bild.jpg" alt="Beschreibung" data-ai data-ai-x="25" data-ai-y="75">
+```
+
 Aus Kompatibilitätsgründen wird auch `marker="ai"` unterstützt.
 
 ## Verhalten
