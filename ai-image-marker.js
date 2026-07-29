@@ -152,7 +152,6 @@
     let node = image;
     let groupedCandidate = null;
     while (node && node !== document.documentElement) {
-      if (motionGroups.has(node)) return node;
       const css = getComputedStyle(node);
       if (css.transform !== 'none' || (css.translate && css.translate !== 'none')) return node;
       if (!groupedCandidate && node !== image && node.querySelectorAll(SELECTOR).length > 1) {
@@ -163,9 +162,23 @@
     return groupedCandidate;
   }
 
+  function detachMotionTracking(record) {
+    const group = record.motionGroup;
+    if (!group) return;
+
+    setRecordMoving(record, group, false);
+    group.records.delete(record);
+    record.motionGroup = null;
+    if (group.records.size === 0) {
+      group.observer.disconnect();
+      motionGroups.delete(group.root);
+    }
+  }
+
   function attachMotionTracking(image, record) {
     const root = findMotionRoot(image);
-    if (!root) return;
+    if (!root || record.motionGroup?.root === root) return;
+    detachMotionTracking(record);
 
     let group = motionGroups.get(root);
     if (!group) {
@@ -186,6 +199,13 @@
       });
       group.observer.observe(root, { attributes: true, attributeFilter: ['style'] });
       motionGroups.set(root, group);
+
+      const css = getComputedStyle(root);
+      if (css.transform !== 'none' || (css.translate && css.translate !== 'none')) {
+        group.moving = true;
+        group.lastChange = Date.now();
+        scheduleMotionCheck();
+      }
     }
 
     group.records.add(record);
@@ -195,7 +215,7 @@
 
   function refreshMotionTracking() {
     for (const [image, record] of markers) {
-      if (!record.motionGroup && image.isConnected) attachMotionTracking(image, record);
+      if (image.isConnected) attachMotionTracking(image, record);
     }
   }
 
@@ -351,14 +371,7 @@
     if (!record) return;
     clearTimeout(record.timer);
     record.resizeObserver?.disconnect();
-    if (record.motionGroup) {
-      const group = record.motionGroup;
-      group.records.delete(record);
-      if (group.records.size === 0) {
-        group.observer.disconnect();
-        motionGroups.delete(group.root);
-      }
-    }
+    detachMotionTracking(record);
     record.button.remove();
     markers.delete(image);
   }
@@ -409,6 +422,8 @@
       schedulePositioning();
     }, { capture: true, once: true });
     setTimeout(refreshMotionTracking, 500);
+    setTimeout(refreshMotionTracking, 1500);
+    setTimeout(refreshMotionTracking, 3000);
 
     window.AIImageMarker = Object.freeze({ refresh });
   }
