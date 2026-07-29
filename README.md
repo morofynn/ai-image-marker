@@ -5,7 +5,7 @@ Ein kleines, frameworkfreies Script zur unaufdringlichen Kennzeichnung KI-generi
 ## Einbindung
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/DEIN-GITHUB-NAME/ai-image-marker@main/ai-image-marker.js" defer></script>
+<script src="https://cdn.jsdelivr.net/gh/morofynn/ai-image-marker@main/ai-image-marker.js" defer></script>
 ```
 
 Anschließend Bilder mit `data-ai` markieren:
