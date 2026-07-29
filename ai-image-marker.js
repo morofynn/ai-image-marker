@@ -7,6 +7,8 @@
   const DEFAULT_LABEL = 'KI-generiert';
   const markers = new Map();
   let scheduled = false;
+  let scrolling = false;
+  let scrollEndTimer = 0;
 
   const style = document.createElement('style');
   style.dataset.aiImageMarker = '';
@@ -19,9 +21,9 @@
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
-      width: 15px;
-      height: 15px;
-      min-width: 15px;
+      width: 12px;
+      height: 12px;
+      min-width: 12px;
       padding: 0;
       overflow: hidden;
       border: 0;
@@ -32,7 +34,7 @@
         inset 1px 1px 2px rgb(255 255 255 / 100%),
         inset -1px -2px 2px rgb(0 0 0 / 13%);
       color: #3d3d3d;
-      font: 600 11px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 600 10px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       white-space: nowrap;
       cursor: pointer;
       pointer-events: auto;
@@ -56,8 +58,8 @@
     }
 
     .ai-image-marker[data-open="true"] {
-      width: var(--ai-marker-open-width, 86px);
-      padding: 0 8px;
+      width: var(--ai-marker-open-width, 78px);
+      padding: 0 7px;
     }
 
     .ai-image-marker[data-open="true"] .ai-image-marker__label {
@@ -72,6 +74,12 @@
 
     .ai-image-marker[hidden] { display: none !important; }
 
+    .ai-image-marker[data-moving="true"] {
+      opacity: 0;
+      pointer-events: none;
+      transition: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .ai-image-marker,
       .ai-image-marker__label { transition: none; }
@@ -79,13 +87,42 @@
   `;
 
   function schedulePositioning() {
+    if (scrolling) return;
     if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(positionAll);
   }
 
+  function setMarkersMoving(moving) {
+    for (const record of markers.values()) {
+      if (moving) close(record);
+      record.button.dataset.moving = String(moving);
+    }
+  }
+
+  function handleScroll() {
+    if (!scrolling) {
+      scrolling = true;
+      setMarkersMoving(true);
+    }
+
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = setTimeout(() => {
+      scrolling = false;
+      scheduled = false;
+      requestAnimationFrame(() => {
+        positionAll();
+        requestAnimationFrame(() => {
+          if (!scrolling) setMarkersMoving(false);
+        });
+      });
+    }, 500);
+  }
+
   function positionAll() {
     scheduled = false;
+    if (scrolling) return;
+
     for (const [image, record] of markers) {
       if (!image.isConnected || !image.matches(SELECTOR)) {
         removeMarker(image);
@@ -122,12 +159,12 @@
     record.button.setAttribute('aria-expanded', 'false');
   }
 
-  function toggle(record) {
-    const willOpen = record.button.dataset.open !== 'true';
+  function open(record, autoClose) {
     clearTimeout(record.timer);
-    record.button.dataset.open = String(willOpen);
-    record.button.setAttribute('aria-expanded', String(willOpen));
-    if (willOpen) record.timer = setTimeout(() => close(record), 2000);
+    record.timer = 0;
+    record.button.dataset.open = 'true';
+    record.button.setAttribute('aria-expanded', 'true');
+    if (autoClose) record.timer = setTimeout(() => close(record), 2000);
   }
 
   function addMarker(image) {
@@ -148,6 +185,7 @@
     button.type = 'button';
     button.className = 'ai-image-marker';
     button.dataset.open = 'false';
+    button.dataset.moving = String(scrolling);
     button.setAttribute('aria-label', label);
     button.setAttribute('aria-expanded', 'false');
     labelNode.className = 'ai-image-marker__label';
@@ -161,6 +199,7 @@
       labelNode,
       timer: 0,
       resizeObserver: null,
+      hovered: false,
       visible: null,
       x: null,
       y: null
@@ -168,7 +207,15 @@
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      toggle(record);
+      open(record, !record.hovered);
+    });
+    button.addEventListener('mouseenter', () => {
+      record.hovered = true;
+      open(record, false);
+    });
+    button.addEventListener('mouseleave', () => {
+      record.hovered = false;
+      close(record);
     });
 
     if ('ResizeObserver' in window) {
@@ -227,7 +274,7 @@
       attributeFilter: ['data-ai', 'data-ai-label', 'marker']
     });
 
-    addEventListener('scroll', schedulePositioning, { passive: true, capture: true });
+    addEventListener('scroll', handleScroll, { passive: true, capture: true });
     addEventListener('resize', schedulePositioning, { passive: true });
     addEventListener('load', schedulePositioning, { capture: true });
 
