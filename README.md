@@ -24,11 +24,12 @@ Aus Kompatibilitätsgründen wird auch `marker="ai"` unterstützt.
 
 ## Verhalten
 
-- 15 × 15 px großer weißer Marker bei 25 % Breite und 75 % Höhe des Bildes
+- 15 × 15 px großer weißer Marker exakt in der Bildmitte
 - öffnet sich bei Klick oder Tastaturbedienung für zwei Sekunden
 - verändert keine bestehenden Bild-, Link-, Grid-, Flex- oder Positionierungsregeln
 - funktioniert auch in `overflow: hidden`-Containern und bei dynamisch eingefügten Bildern
 - berücksichtigt Scrollen, verschachtelte Scrollcontainer, Größenänderungen und responsive Layouts
+- beobachtet nur relevante Bildattribute und bleibt dadurch auch auf animationsreichen Seiten performant
 - zugänglich per Tastatur und `aria-label`
 - respektiert `prefers-reduced-motion`
 

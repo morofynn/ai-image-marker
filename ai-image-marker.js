@@ -26,9 +26,7 @@
       overflow: hidden;
       border: 0;
       border-radius: 999px;
-      background:
-        radial-gradient(circle at 32% 26%, #fff 0 24%, transparent 52%),
-        linear-gradient(145deg, #fff 0%, #f7f7f5 48%, #dededb 100%);
+      background: linear-gradient(145deg, #fff 0%, #f3f3f0 58%, #d7d7d3 100%);
       box-shadow:
         0 2px 5px rgb(0 0 0 / 22%),
         inset 1px 1px 2px rgb(255 255 255 / 100%),
@@ -95,18 +93,25 @@
       }
 
       const rect = image.getBoundingClientRect();
-      const css = getComputedStyle(image);
       const visible = rect.width > 0 && rect.height > 0 &&
-        rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight &&
-        css.display !== 'none' && css.visibility !== 'hidden' && css.opacity !== '0';
-      record.button.hidden = !visible;
+        rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
+
+      if (record.visible !== visible) {
+        record.visible = visible;
+        record.button.hidden = !visible;
+      }
       if (!visible) continue;
 
-      // From the image centre: 25% of its size to the left and down.
-      const x = Math.min(Math.max(rect.left + rect.width * 0.25, 8), innerWidth - 8);
-      const y = Math.min(Math.max(rect.top + rect.height * 0.75, 8), innerHeight - 8);
-      record.button.style.left = `${x}px`;
-      record.button.style.top = `${y}px`;
+      const x = Math.round((rect.left + rect.width * 0.5) * 2) / 2;
+      const y = Math.round((rect.top + rect.height * 0.5) * 2) / 2;
+      if (record.x !== x) {
+        record.x = x;
+        record.button.style.left = `${x}px`;
+      }
+      if (record.y !== y) {
+        record.y = y;
+        record.button.style.top = `${y}px`;
+      }
     }
   }
 
@@ -129,8 +134,11 @@
     if (markers.has(image)) {
       const current = markers.get(image);
       const nextLabel = image.dataset.aiLabel || DEFAULT_LABEL;
-      current.button.setAttribute('aria-label', nextLabel);
-      current.button.querySelector('.ai-image-marker__label').textContent = nextLabel;
+      if (current.label !== nextLabel) {
+        current.label = nextLabel;
+        current.button.setAttribute('aria-label', nextLabel);
+        current.labelNode.textContent = nextLabel;
+      }
       return;
     }
 
@@ -147,7 +155,16 @@
     button.append(labelNode);
     document.body.append(button);
 
-    const record = { button, timer: 0, resizeObserver: null };
+    const record = {
+      button,
+      label,
+      labelNode,
+      timer: 0,
+      resizeObserver: null,
+      visible: null,
+      x: null,
+      y: null
+    };
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -189,20 +206,25 @@
     scan();
 
     const mutationObserver = new MutationObserver((mutations) => {
-      let needsRefresh = false;
       for (const mutation of mutations) {
         if (mutation.target.closest?.('.ai-image-marker')) continue;
-        needsRefresh = true;
-        if (mutation.type === 'attributes') scan(mutation.target);
+
+        if (mutation.type === 'attributes') {
+          const image = mutation.target;
+          if (image.matches(SELECTOR)) addMarker(image);
+          else removeMarker(image);
+          continue;
+        }
+
         mutation.addedNodes.forEach(scan);
+        schedulePositioning();
       }
-      if (needsRefresh) refresh();
     });
     mutationObserver.observe(document.documentElement, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-ai', 'data-ai-label', 'marker', 'src', 'style', 'class']
+      attributeFilter: ['data-ai', 'data-ai-label', 'marker']
     });
 
     addEventListener('scroll', schedulePositioning, { passive: true, capture: true });
